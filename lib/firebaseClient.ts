@@ -1,18 +1,16 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 
-// Firebase client config provided by user
 const clientConfig = {
-  apiKey: "AIzaSyAAcotXAx5uWo_C3ixOEX5zliahdsnbFHo",
-  authDomain: "nainiiiprinting.firebaseapp.com",
-  projectId: "nainiiiprinting",
-  storageBucket: "nainiiiprinting.firebasestorage.app",
-  messagingSenderId: "543789808706",
-  appId: "1:543789808706:web:18da43e3a1140698ac01db",
-  measurementId: "G-YCHYQPPWE7",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
 if (!getApps().length) initializeApp(clientConfig)
 
 export const firebaseAuth = getAuth()
-

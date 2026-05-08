@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
 // Full token verification happens in server-side API routes using the Firebase Admin SDK
 // because the Edge runtime (middleware) doesn't support native Node modules used by firebase-admin.
 
-const PUBLIC_PATHS = ['/login', '/signup', '/api/auth/session']
+const PUBLIC_PATHS = ['/login', '/api/']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -22,5 +22,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/inventory/:path*', '/sales/:path*'],
+  // Match all pages except static files and _next internals
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
