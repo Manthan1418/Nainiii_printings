@@ -6,6 +6,8 @@ const navItems = [
   { label: 'Dashboard', href: '/', icon: 'analytics' },
   { label: 'Stock', href: '/inventory', icon: 'inventory' },
   { label: 'Sales', href: '/sales', icon: 'receipt_long' },
+  { label: 'Production', href: '/production', icon: 'precision_manufacturing' },
+  { label: 'Finance', href: '/finance', icon: 'account_balance_wallet' },
   { label: 'Parties', href: '/parties', icon: 'group' },
 ];
 

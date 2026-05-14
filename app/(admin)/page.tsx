@@ -5,22 +5,25 @@ import Link from 'next/link';
 export default function Dashboard() {
   const [sales, setSales] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [production, setProduction] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/sales').then(async res => {
-        if (!res.ok) throw new Error(await res.text() || res.statusText);
-        return res.json();
-      }),
-      fetch('/api/inventory').then(async res => {
-        if (!res.ok) throw new Error(await res.text() || res.statusText);
-        return res.json();
-      })
+      fetch('/api/sales').then(r => r.ok ? r.json() : []),
+      fetch('/api/inventory').then(r => r.ok ? r.json() : []),
+      fetch('/api/production').then(r => r.ok ? r.json() : []),
+      fetch('/api/finance/receipts').then(r => r.ok ? r.json() : []),
+      fetch('/api/finance/expenses').then(r => r.ok ? r.json() : [])
     ])
-    .then(([salesData, inventoryData]) => {
+    .then(([salesData, inventoryData, prodData, recData, expData]) => {
       setSales(Array.isArray(salesData) ? salesData : []);
       setInventory(Array.isArray(inventoryData) ? inventoryData : []);
+      setProduction(Array.isArray(prodData) ? prodData : []);
+      setReceipts(Array.isArray(recData) ? recData : []);
+      setExpenses(Array.isArray(expData) ? expData : []);
       setLoading(false);
     })
     .catch(err => {
@@ -29,27 +32,34 @@ export default function Dashboard() {
     });
   }, []);
 
-  const totalRevenue = sales.reduce((acc, sale) => acc + (sale.totalAmount || 0), 0);
-  const activeOrders = sales.filter(s => ['pending', 'processing'].includes(s.status?.toLowerCase())).length;
-  const inventoryAlerts = inventory.filter(i => (i.quantity ?? 0) < 10).length;
+  const totalRevenue = receipts.reduce((acc, rec) => acc + (Number(rec.amount) || 0), 0);
+  const totalExpenses = expenses.reduce((acc, exp) => acc + (Number(exp.amount) || 0), 0);
+  const netProfit = totalRevenue - totalExpenses;
+  const activeOrders = sales.filter(s => ['pending', 'in production'].includes(s.status?.toLowerCase())).length;
+  const inventoryAlerts = inventory.filter(i => (i.quantity ?? 0) <= (i.reorderLevel ?? 10)).length;
 
-  const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+  const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
-  const recentActivity = [...sales].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 4);
+  // Merge recent activity
+  const recentSales = sales.map(s => ({ ...s, type: 'Sale', dateStr: s.createdAt }));
+  const recentProd = production.map(p => ({ ...p, type: 'Production', dateStr: p.createdAt }));
+  const recentActivity = [...recentSales, ...recentProd]
+    .sort((a, b) => new Date(b.dateStr || 0).getTime() - new Date(a.dateStr || 0).getTime())
+    .slice(0, 5);
+
   return (
     <main className="flex-1 md:ml-sidebar-width p-container-padding overflow-y-auto">
-<div className="mb-8 flex justify-between items-end">
-<div>
-<h1 className="font-h1 text-h1 text-primary">Executive Overview</h1>
-<p className="font-body-lg text-body-lg text-on-surface-variant mt-1">Real-time enterprise metrics and recent activity.</p>
-</div>
-<div className="hidden sm:flex gap-3">
-<button className="bg-surface-container-lowest text-primary border border-outline-variant rounded-DEFAULT px-4 py-2 font-body-md hover:bg-surface-container-low transition-colors">Export Report</button>
-<button className="bg-tertiary-container text-on-tertiary rounded-DEFAULT px-4 py-2 font-body-md hover:bg-on-tertiary-fixed-variant transition-colors flex items-center gap-2">
-<span className="material-symbols-outlined text-[18px]">add</span> New Entry
-                    </button>
-</div>
-</div>
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <h1 className="font-h1 text-h1 text-primary">Executive Overview</h1>
+          <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">Real-time enterprise metrics and recent activity.</p>
+        </div>
+        <div className="hidden sm:flex gap-3">
+          <Link href="/sales" className="bg-tertiary-container text-on-tertiary rounded-DEFAULT px-4 py-2 font-body-md hover:bg-on-tertiary-fixed-variant transition-colors flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">add</span> New Order
+          </Link>
+        </div>
+      </div>
 {/* Metrics Grid */}
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 {/* Metric Card 1 */}
@@ -124,17 +134,17 @@ export default function Dashboard() {
   recentActivity.map((activity, idx) => (
     <tr key={activity.id} className={`hover:bg-surface-container-low transition-colors group ${idx % 2 === 1 ? 'bg-surface' : ''}`}>
       <td className="py-3 px-6 font-data-tabular text-on-surface-variant">
-        {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+        {activity.dateStr ? new Date(activity.dateStr).toLocaleDateString() : 'N/A'}
       </td>
       <td className="py-3 px-6 flex items-center gap-2">
-        <div className="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[10px] font-bold">
-          {(activity.customer?.name?.[0] || activity.customer?.[0] || 'C').toUpperCase()}
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${activity.type === 'Sale' ? 'bg-secondary-container text-on-secondary-container' : 'bg-tertiary-container text-on-tertiary-container'}`}>
+          {activity.type === 'Sale' ? 'S' : 'P'}
         </div>
-        <span>{activity.customer?.name || activity.customer || 'Customer'}</span>
+        <span>{activity.type === 'Sale' ? activity.customer || 'Customer' : 'Internal'}</span>
       </td>
-      <td className="py-3 px-6">Placed Order {activity.invoiceNo || activity.id?.substring(0,6)}</td>
+      <td className="py-3 px-6">{activity.type === 'Sale' ? `Order ${activity.invoiceNo}` : `Batch ${activity.batchNo}`}</td>
       <td className="py-3 px-6 text-right">
-        <span className="inline-block px-2 py-1 bg-secondary-container text-on-secondary-container rounded-DEFAULT text-[10px] font-bold uppercase tracking-wider">
+        <span className="inline-block px-2 py-1 bg-surface-container-high text-on-surface rounded-DEFAULT text-[10px] font-bold uppercase tracking-wider">
           {activity.status || 'Complete'}
         </span>
       </td>
@@ -151,48 +161,48 @@ export default function Dashboard() {
 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 ambient-shadow">
 <h3 className="font-h3 text-h3 text-primary mb-4">Quick Actions</h3>
 <div className="grid grid-cols-2 gap-3">
-<button className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+<Link href="/sales" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
 <span className="material-symbols-outlined text-primary mb-2">add_shopping_cart</span>
 <span className="font-body-sm text-body-sm text-on-surface">New Order</span>
-</button>
-<button className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+</Link>
+<Link href="/parties" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
 <span className="material-symbols-outlined text-primary mb-2">person_add</span>
-<span className="font-body-sm text-body-sm text-on-surface">Add User</span>
-</button>
-<button className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
-<span className="material-symbols-outlined text-primary mb-2">receipt_long</span>
-<span className="font-body-sm text-body-sm text-on-surface">Create Invoice</span>
-</button>
-<button className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
-<span className="material-symbols-outlined text-primary mb-2">support_agent</span>
-<span className="font-body-sm text-body-sm text-on-surface">Support Tkt</span>
-</button>
+<span className="font-body-sm text-body-sm text-on-surface">Add Customer</span>
+</Link>
+<Link href="/finance" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+<span className="material-symbols-outlined text-primary mb-2">payments</span>
+<span className="font-body-sm text-body-sm text-on-surface">Record Income</span>
+</Link>
+<Link href="/production" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+<span className="material-symbols-outlined text-primary mb-2">precision_manufacturing</span>
+<span className="font-body-sm text-body-sm text-on-surface">New Batch</span>
+</Link>
 </div>
 </div>
 {/* System Status Minimal */}
 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 ambient-shadow flex-1">
-<h3 className="font-h3 text-h3 text-primary mb-4">System Status</h3>
+<h3 className="font-h3 text-h3 text-primary mb-4">Business Summary</h3>
 <ul className="flex flex-col gap-4">
 <li className="flex items-center justify-between">
 <div className="flex items-center gap-2">
-<div className="w-2 h-2 rounded-full bg-on-tertiary-container"></div>
-<span className="font-body-sm text-body-sm text-on-surface">Main Database</span>
+<span className="material-symbols-outlined text-[18px] text-on-surface-variant">account_balance_wallet</span>
+<span className="font-body-sm text-body-sm text-on-surface">Net Profit</span>
 </div>
-<span className="font-data-tabular text-data-tabular text-on-surface-variant">99.9% Uptime</span>
+<span className={`font-data-tabular text-data-tabular ${netProfit >= 0 ? 'text-primary' : 'text-error'}`}>{formatCurrency(netProfit)}</span>
 </li>
 <li className="flex items-center justify-between">
 <div className="flex items-center gap-2">
-<div className="w-2 h-2 rounded-full bg-on-tertiary-container"></div>
-<span className="font-body-sm text-body-sm text-on-surface">Payment Gateway</span>
+<span className="material-symbols-outlined text-[18px] text-on-surface-variant">precision_manufacturing</span>
+<span className="font-body-sm text-body-sm text-on-surface">Production Batches</span>
 </div>
-<span className="font-data-tabular text-data-tabular text-on-surface-variant">Operational</span>
+<span className="font-data-tabular text-data-tabular text-on-surface-variant">{production.length}</span>
 </li>
 <li className="flex items-center justify-between">
 <div className="flex items-center gap-2">
-<div className="w-2 h-2 rounded-full bg-error"></div>
-<span className="font-body-sm text-body-sm text-on-surface">Legacy Sync</span>
+<span className="material-symbols-outlined text-[18px] text-error">warning</span>
+<span className="font-body-sm text-body-sm text-on-surface">Low Stock Items</span>
 </div>
-<span className="font-data-tabular text-data-tabular text-error">Failing</span>
+<span className="font-data-tabular text-data-tabular text-error">{inventoryAlerts}</span>
 </li>
 </ul>
 </div>

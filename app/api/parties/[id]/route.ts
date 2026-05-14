@@ -3,8 +3,9 @@ import { firestore } from '../../../../lib/firebaseAdmin'
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  context: any
 ) {
+  const params = await context.params;
   try {
     await firestore.collection('parties').doc(params.id).delete()
     return NextResponse.json({ ok: true })
@@ -15,8 +16,9 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: any
 ) {
+  const params = await context.params;
   try {
     const body = await req.json()
     const { name, phone, email, address, type, gstin, notes } = body
@@ -33,11 +35,29 @@ export async function PATCH(
       type: type || 'customer',
       gstin: gstin?.trim() || '',
       notes: notes?.trim() || '',
+      latitude: body.latitude,
+      longitude: body.longitude,
       updatedAt: new Date().toISOString(),
     }
 
     await firestore.collection('parties').doc(params.id).update(data)
     return NextResponse.json({ id: params.id, ...data })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+export async function GET(
+  _req: Request,
+  context: any
+) {
+  const params = await context.params;
+  try {
+    const doc = await firestore.collection('parties').doc(params.id).get()
+    if (!doc.exists) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    return NextResponse.json({ id: doc.id, ...doc.data() })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -5,30 +5,37 @@ import { useForm } from 'react-hook-form';
 export default function SalesPage() {
   const [sales, setSales] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [parties, setParties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [orderType, setOrderType] = useState<'bag' | 'printing'>('bag');
   
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
   useEffect(() => {
-    if (isModalOpen && inventory.length === 0) {
-      fetch('/api/inventory').then(r => r.json()).then(data => setInventory(Array.isArray(data) ? data : [])).catch(console.error);
+    if (isModalOpen && parties.length === 0) {
+      fetch('/api/parties').then(r => r.json()).then(data => setParties(Array.isArray(data) ? data : [])).catch(console.error);
     }
-  }, [isModalOpen, inventory.length]);
+  }, [isModalOpen, parties.length]);
 
   const onSubmit = async (data: any) => {
     try {
-      const selectedItem = inventory.find(i => i.id === data.itemId);
-      if (!selectedItem) return alert('Select an item');
+      const selectedParty = parties.find(p => p.id === data.customerId);
+      const customerName = selectedParty ? selectedParty.name : data.customer;
       
       const payload = {
-        customer: data.customer,
+        customer: customerName,
+        customerId: data.customerId || null,
+        orderType: orderType,
+        status: data.status || 'Pending',
         notes: data.notes,
         items: [{
-          itemId: selectedItem.id,
+          name: data.productType || data.printingType,
+          size: data.bagSize || data.printingSize,
+          material: data.material || '',
           quantity: parseInt(data.quantity) || 1,
-          price: selectedItem.sellingPrice || 0
+          price: parseFloat(data.price) || 0
         }]
       };
 
@@ -184,9 +191,14 @@ export default function SalesPage() {
         )}
       </td>
       <td className="px-4 py-2 whitespace-nowrap text-right">
-        <button className="text-on-surface-variant hover:text-on-tertiary-fixed opacity-0 group-hover:opacity-100 transition-opacity p-1">
-          <span className="material-symbols-outlined text-[18px]">more_vert</span>
-        </button>
+        <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+          <button className="p-1 rounded text-primary hover:bg-primary-container transition-colors" title="Print Invoice" onClick={() => window.print()}>
+            <span className="material-symbols-outlined text-[18px]">print</span>
+          </button>
+          <button className="p-1 rounded text-on-surface-variant hover:text-on-tertiary-fixed transition-colors">
+            <span className="material-symbols-outlined text-[18px]">more_vert</span>
+          </button>
+        </div>
       </td>
     </tr>
   ))
@@ -223,21 +235,71 @@ export default function SalesPage() {
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
         <div>
-          <label className="block font-body-sm text-on-surface-variant mb-1">Customer Name *</label>
-          <input {...register('customer', { required: true })} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
-        </div>
-        <div>
-          <label className="block font-body-sm text-on-surface-variant mb-1">Select Item *</label>
-          <select {...register('itemId', { required: true })} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required>
-            <option value="">-- Choose Item --</option>
-            {inventory.map(item => (
-              <option key={item.id} value={item.id}>{item.name} ({item.quantity || 0} in stock) - ${item.sellingPrice}</option>
+          <label className="block font-body-sm text-on-surface-variant mb-1">Customer *</label>
+          <select {...register('customerId', { required: true })} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required>
+            <option value="">-- Select Customer --</option>
+            {parties.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
         </div>
+
         <div>
-          <label className="block font-body-sm text-on-surface-variant mb-1">Quantity *</label>
-          <input type="number" min="1" {...register('quantity', { required: true })} defaultValue="1" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+          <label className="block font-body-sm text-on-surface-variant mb-1">Order Type</label>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setOrderType('bag')} className={`flex-1 py-2 rounded border text-body-sm font-semibold transition-all ${orderType === 'bag' ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary'}`}>Bag Order</button>
+            <button type="button" onClick={() => setOrderType('printing')} className={`flex-1 py-2 rounded border text-body-sm font-semibold transition-all ${orderType === 'printing' ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary'}`}>Printing Service</button>
+          </div>
+        </div>
+
+        {orderType === 'bag' ? (
+          <>
+            <div>
+              <label className="block font-body-sm text-on-surface-variant mb-1">Product Type *</label>
+              <input {...register('productType', { required: true })} placeholder="e.g. Non-Woven Bag" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+            </div>
+            <div>
+              <label className="block font-body-sm text-on-surface-variant mb-1">Bag Size *</label>
+              <input {...register('bagSize', { required: true })} placeholder="e.g. 10x14" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="block font-body-sm text-on-surface-variant mb-1">Printing Type *</label>
+              <input {...register('printingType', { required: true })} placeholder="e.g. Screen Print" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+            </div>
+            <div>
+              <label className="block font-body-sm text-on-surface-variant mb-1">Material *</label>
+              <input {...register('material', { required: true })} placeholder="e.g. Paper" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+            </div>
+            <div>
+              <label className="block font-body-sm text-on-surface-variant mb-1">Printing Size *</label>
+              <input {...register('printingSize', { required: true })} placeholder="e.g. A4" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+            </div>
+          </>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-body-sm text-on-surface-variant mb-1">Quantity (pcs) *</label>
+            <input type="number" min="1" {...register('quantity', { required: true })} defaultValue="1" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+          </div>
+          <div>
+            <label className="block font-body-sm text-on-surface-variant mb-1">Rate per pcs (₹) *</label>
+            <input type="number" step="0.01" min="0" {...register('price', { required: true })} defaultValue="0" className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" required />
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-body-sm text-on-surface-variant mb-1">Order Status</label>
+          <select {...register('status')} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="Pending">Pending</option>
+            <option value="In Production">In Production</option>
+            <option value="Completed">Completed</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Paid">Paid</option>
+          </select>
         </div>
         <div>
           <label className="block font-body-sm text-on-surface-variant mb-1">Notes</label>

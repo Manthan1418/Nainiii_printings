@@ -28,6 +28,8 @@ export async function POST(req: Request) {
       type: type || 'customer',   // 'customer' | 'supplier' | 'both'
       gstin: gstin?.trim() || '',
       notes: notes?.trim() || '',
+      latitude: body.latitude,
+      longitude: body.longitude,
       createdAt: new Date().toISOString(),
     }
 

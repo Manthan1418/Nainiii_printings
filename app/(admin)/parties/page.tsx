@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 
 type PartyType = "customer" | "supplier" | "both";
 
@@ -12,6 +13,8 @@ interface Party {
   type: PartyType;
   gstin: string;
   notes: string;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
 }
 
@@ -23,6 +26,8 @@ const EMPTY_FORM = {
   type: "customer" as PartyType,
   gstin: "",
   notes: "",
+  latitude: undefined as number | undefined,
+  longitude: undefined as number | undefined,
 };
 
 const TYPE_BADGE: Record<PartyType, { label: string; classes: string }> = {
@@ -77,7 +82,7 @@ export default function PartiesPage() {
 
   function openEdit(p: Party) {
     setEditParty(p);
-    setForm({ name: p.name, phone: p.phone, email: p.email, address: p.address, type: p.type, gstin: p.gstin, notes: p.notes });
+    setForm({ name: p.name, phone: p.phone, email: p.email, address: p.address, type: p.type, gstin: p.gstin, notes: p.notes, latitude: p.latitude, longitude: p.longitude });
     setFormError("");
     setModalOpen(true);
     setTimeout(() => firstInputRef.current?.focus(), 100);
@@ -241,7 +246,7 @@ export default function PartiesPage() {
                             {p.name[0]?.toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-semibold text-on-surface">{p.name}</div>
+                            <Link href={`/parties/${p.id}`} className="font-semibold text-on-surface hover:underline hover:text-primary transition-colors">{p.name}</Link>
                             {p.address && <div className="text-on-surface-variant text-[11px] truncate max-w-[160px]">{p.address}</div>}
                           </div>
                         </div>
@@ -370,7 +375,40 @@ export default function PartiesPage() {
 
               {/* Address */}
               <div>
-                <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="party-address">Address</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-body-sm text-body-sm text-on-surface-variant" htmlFor="party-address">Address</label>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(async (position) => {
+                          const lat = position.coords.latitude;
+                          const lng = position.coords.longitude;
+                          setForm(f => ({ ...f, latitude: lat, longitude: lng }));
+                          
+                          // Optional: reverse geocoding
+                          try {
+                            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                            const data = await res.json();
+                            if (data && data.display_name) {
+                              setForm(f => ({ ...f, address: data.display_name }));
+                            }
+                          } catch (e) {
+                            console.error("Geocoding failed", e);
+                          }
+                        }, (error) => {
+                          alert("Failed to get location: " + error.message);
+                        });
+                      } else {
+                        alert("Geolocation is not supported by this browser.");
+                      }
+                    }}
+                    className="text-primary text-[11px] font-semibold hover:underline flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">my_location</span>
+                    Use Current Location
+                  </button>
+                </div>
                 <textarea
                   id="party-address"
                   rows={2}
@@ -379,6 +417,11 @@ export default function PartiesPage() {
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow resize-none"
                 />
+                {form.latitude && form.longitude && (
+                  <div className="text-[10px] text-on-surface-variant mt-1">
+                    GPS: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
+                  </div>
+                )}
               </div>
 
               {/* GSTIN */}
