@@ -22,7 +22,6 @@ export async function POST(req: Request) {
         itemId: it.itemId || null, 
         name: it.name || '',
         size: it.size || '',
-        material: it.material || '',
         quantity: it.quantity, 
         price: it.price 
       })

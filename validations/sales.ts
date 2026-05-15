@@ -4,7 +4,6 @@ export const SaleItemSchema = z.object({
   itemId: z.string().optional(), 
   name: z.string().optional(),
   size: z.string().optional(),
-  material: z.string().optional(),
   quantity: z.number().int().min(1), 
   price: z.number().min(0) 
 })

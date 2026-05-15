@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 
 export default function ProductionPage() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -20,11 +20,8 @@ export default function ProductionPage() {
       costPerPcs: 0,
       status: "Pending",
       notes: "",
-      rawMaterials: [{ itemId: "", quantity: 1 }]
     }
   });
-
-  const { fields, append, remove } = useFieldArray({ control, name: "rawMaterials" });
 
   useEffect(() => {
     Promise.all([
@@ -39,8 +36,7 @@ export default function ProductionPage() {
     .catch(console.error);
   }, []);
 
-  const rawMaterialsList = inventory.filter(i => i.itemType !== "finished_good");
-  const finishedGoodsList = inventory.filter(i => i.itemType === "finished_good");
+
 
   const onSubmit = async (data: any) => {
     try {
@@ -161,7 +157,7 @@ export default function ProductionPage() {
                     <label className="block font-body-sm text-on-surface-variant mb-1">Target Inventory Item (Optional)</label>
                     <select {...register('finishedGoodItemId')} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest focus:ring-2 focus:ring-primary">
                       <option value="">-- Custom Product --</option>
-                      {finishedGoodsList.map(item => (
+                      {inventory.map(item => (
                         <option key={item.id} value={item.id}>{item.name} ({item.quantity} in stock)</option>
                       ))}
                     </select>
@@ -181,36 +177,7 @@ export default function ProductionPage() {
                 </div>
               </div>
 
-              {/* Raw Materials */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-end border-b pb-2">
-                  <h3 className="font-h3 text-h3 text-primary">Raw Materials Used</h3>
-                  <button type="button" onClick={() => append({ itemId: "", quantity: 1 })} className="text-[12px] font-semibold text-primary hover:underline">
-                    + Add Material
-                  </button>
-                </div>
-                
-                {fields.map((field, index) => (
-                  <div key={field.id} className="flex gap-4 items-end">
-                    <div className="flex-1">
-                      <label className="block font-body-sm text-on-surface-variant mb-1">Material</label>
-                      <select {...register(`rawMaterials.${index}.itemId` as const, { required: true })} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest focus:ring-2 focus:ring-primary" required>
-                        <option value="">-- Select Material --</option>
-                        {rawMaterialsList.map(rm => (
-                          <option key={rm.id} value={rm.id}>{rm.name} ({rm.quantity} {rm.unit})</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="w-24">
-                      <label className="block font-body-sm text-on-surface-variant mb-1">Qty</label>
-                      <input type="number" step="0.01" min="0" {...register(`rawMaterials.${index}.quantity` as const, { required: true })} className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest focus:ring-2 focus:ring-primary" required />
-                    </div>
-                    <button type="button" onClick={() => remove(index)} className="p-2 mb-0.5 text-error hover:bg-error-container rounded transition-colors">
-                      <span className="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
+
 
               {/* Costing & Status */}
               <div className="space-y-4">

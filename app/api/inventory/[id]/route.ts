@@ -11,7 +11,6 @@ export async function PATCH(
     const data = {
       ...body,
       quantity: Number(body.quantity) || 0,
-      buyingPrice: Number(body.buyingPrice) || 0,
       sellingPrice: Number(body.sellingPrice) || 0,
       reorderLevel: Number(body.reorderLevel) || 0,
       updatedAt: new Date().toISOString(),

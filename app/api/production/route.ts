@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { productType, productSize, quantity, producedQuantity, wasteQuantity, costPerPcs, rawMaterials, notes, status } = body
+    const { productType, productSize, quantity, producedQuantity, wasteQuantity, costPerPcs, notes, status } = body
 
     const totalCost = (producedQuantity || quantity) * (costPerPcs || 0)
     const initialStatus = status || 'Pending'
@@ -32,26 +32,13 @@ export async function POST(req: Request) {
         wasteQuantity: Number(wasteQuantity) || 0,
         costPerPcs: Number(costPerPcs) || 0,
         totalCost,
-        rawMaterials,
         notes: notes || '',
         status: initialStatus,
         createdAt: new Date().toISOString()
       })
 
       if (initialStatus === 'Completed') {
-        // 2. Deduct Raw Materials
-        for (const rm of rawMaterials) {
-          const rmRef = firestore.collection('inventoryItems').doc(rm.itemId)
-          const rmSnap = await tx.get(rmRef)
-          if (rmSnap.exists) {
-            const rmData = rmSnap.data() as any
-            if ((rmData.quantity ?? 0) >= rm.quantity) {
-              tx.update(rmRef, { quantity: (rmData.quantity ?? 0) - rm.quantity })
-              const histRef = firestore.collection('inventoryHistory').doc()
-              tx.set(histRef, { itemId: rm.itemId, change: -rm.quantity, reason: `Production Batch ${batchRef.id}`, createdAt: new Date().toISOString() })
-            }
-          }
-        }
+        // 2. Add Finished Good (if applicable)
 
         // 3. Add Finished Good
         // Try to find if this finished good exists in inventory by name/size. If not, maybe create?

@@ -4,35 +4,35 @@ import { useEffect, useState, useRef } from "react";
 interface InventoryItem {
   id: string;
   name: string;
-  sku: string;
   quantity: number;
   unit: string;
-  buyingPrice: number;
   sellingPrice: number;
-  reorderLevel: number;
-  supplierId?: string;
   categoryId?: string;
-  itemType?: "raw_material" | "finished_good";
   notes?: string;
 }
 
 const EMPTY_FORM = {
   name: "",
-  sku: "",
   quantity: 0,
   unit: "",
-  buyingPrice: 0,
   sellingPrice: 0,
-  reorderLevel: 10,
-  supplierId: "",
   categoryId: "",
-  itemType: "raw_material" as "raw_material" | "finished_good",
   notes: "",
 };
 
-function stockStatus(qty: number, reorder: number) {
+// Common items – admin can pick these to pre-fill the form quickly
+const PRESETS = [
+  { name: "Ink",         unit: "litre",  categoryId: "Consumables" },
+  { name: "Zip Roll",    unit: "roll",   categoryId: "Consumables" },
+  { name: "A4 Paper",    unit: "ream",   categoryId: "Paper" },
+  { name: "Ribbon",      unit: "pcs",    categoryId: "Consumables" },
+  { name: "Plastic Bag", unit: "pcs",    categoryId: "Packaging" },
+  { name: "Solvent",     unit: "litre",  categoryId: "Consumables" },
+];
+
+function stockStatus(qty: number) {
   if (qty === 0) return { label: "Out of Stock", classes: "bg-error-container text-on-error-container" };
-  if (qty <= reorder) return { label: "Low Stock", classes: "bg-[#fff3e0] text-[#e65100]" };
+  if (qty <= 5)  return { label: "Low Stock",    classes: "bg-[#fff3e0] text-[#e65100]" };
   return { label: "In Stock", classes: "bg-secondary-container text-on-secondary-container" };
 }
 
@@ -41,7 +41,6 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "in" | "low" | "out">("all");
-  const [filterType, setFilterType] = useState<"all" | "raw_material" | "finished_good">("all");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
@@ -81,15 +80,10 @@ export default function InventoryPage() {
     setEditItem(item);
     setForm({
       name: item.name,
-      sku: item.sku,
       quantity: item.quantity,
       unit: item.unit,
-      buyingPrice: item.buyingPrice,
       sellingPrice: item.sellingPrice,
-      reorderLevel: item.reorderLevel ?? 10,
-      supplierId: item.supplierId ?? "",
       categoryId: item.categoryId ?? "",
-      itemType: item.itemType || "raw_material",
       notes: item.notes ?? "",
     });
     setFormError("");
@@ -110,7 +104,6 @@ export default function InventoryPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setFormError("Item name is required."); return; }
-    if (!form.sku.trim()) { setFormError("SKU is required."); return; }
     if (!form.unit.trim()) { setFormError("Unit is required."); return; }
     setSaving(true);
     setFormError("");
@@ -118,9 +111,7 @@ export default function InventoryPage() {
       const payload = {
         ...form,
         quantity: Number(form.quantity) || 0,
-        buyingPrice: Number(form.buyingPrice) || 0,
         sellingPrice: Number(form.sellingPrice) || 0,
-        reorderLevel: Number(form.reorderLevel) || 0,
       };
 
       let res: Response;
@@ -185,16 +176,14 @@ export default function InventoryPage() {
       (filterStatus === "out" && qty === 0) ||
       (filterStatus === "low" && qty > 0 && qty <= reorder) ||
       (filterStatus === "in" && qty > reorder);
-      
-    const matchType = filterType === "all" || item.itemType === filterType;
 
-    return matchSearch && matchStatus && matchType;
+    return matchSearch && matchStatus;
   });
 
   const counts = {
     all: items.length,
-    in: items.filter(i => (i.quantity ?? 0) > (i.reorderLevel ?? 10)).length,
-    low: items.filter(i => { const q = i.quantity ?? 0; const r = i.reorderLevel ?? 10; return q > 0 && q <= r; }).length,
+    in:  items.filter(i => (i.quantity ?? 0) > 5).length,
+    low: items.filter(i => { const q = i.quantity ?? 0; return q > 0 && q <= 5; }).length,
     out: items.filter(i => (i.quantity ?? 0) === 0).length,
   };
 
@@ -224,7 +213,7 @@ export default function InventoryPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total SKUs", value: loading ? "…" : items.length, icon: "inventory_2", color: "text-primary" },
+          { label: "Total Items", value: loading ? "…" : items.length, icon: "inventory_2", color: "text-primary" },
           { label: "Stock Value", value: loading ? "…" : formatCurrency(totalValue), icon: "payments", color: "text-primary" },
           { label: "Low Stock", value: loading ? "…" : counts.low, icon: "warning", color: "text-[#e65100]" },
           { label: "Out of Stock", value: loading ? "…" : counts.out, icon: "error", color: "text-error" },
@@ -242,25 +231,6 @@ export default function InventoryPage() {
       {/* Filters */}
       <div className="flex flex-col gap-4 mb-5">
         <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex gap-1 bg-surface-container-low p-1 rounded-lg border border-surface-variant flex-wrap">
-            {([
-              { key: "all", label: "All Items" },
-              { key: "raw_material", label: "Raw Materials" },
-              { key: "finished_good", label: "Finished Goods" },
-            ] as const).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setFilterType(key as any)}
-                className={`px-3 py-1.5 rounded text-body-sm font-semibold transition-all ${
-                  filterType === key
-                    ? "bg-surface-container-lowest text-primary shadow-sm border border-outline-variant/50"
-                    : "text-on-surface-variant hover:text-primary"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         <div className="flex gap-1 bg-surface-container-low p-1 rounded-lg border border-surface-variant flex-wrap">
           {([
             { key: "all", label: "All" },
@@ -307,10 +277,9 @@ export default function InventoryPage() {
             <thead className="bg-surface-container-low font-data-tabular text-data-tabular text-on-surface-variant border-b border-surface-variant">
               <tr>
                 <th className="py-3 px-6 font-medium">Item</th>
-                <th className="py-3 px-4 font-medium hidden sm:table-cell">SKU</th>
                 <th className="py-3 px-4 font-medium hidden md:table-cell">Category</th>
                 <th className="py-3 px-4 font-medium text-right">Qty</th>
-                <th className="py-3 px-4 font-medium text-right hidden sm:table-cell">Sell Price</th>
+                <th className="py-3 px-4 font-medium text-right hidden sm:table-cell">Price</th>
                 <th className="py-3 px-4 font-medium">Status</th>
                 <th className="py-3 px-4 font-medium text-right">Actions</th>
               </tr>
@@ -333,7 +302,7 @@ export default function InventoryPage() {
                 </tr>
               ) : (
                 filtered.map(item => {
-                  const { label, classes } = stockStatus(item.quantity ?? 0, item.reorderLevel ?? 10);
+                  const { label, classes } = stockStatus(item.quantity ?? 0);
                   return (
                     <tr key={item.id} className="hover:bg-surface-container-low transition-colors group">
                       <td className="py-3 px-6">
@@ -347,7 +316,6 @@ export default function InventoryPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4 hidden sm:table-cell font-mono text-[12px] text-on-surface-variant">{item.sku}</td>
                       <td className="py-3 px-4 hidden md:table-cell text-on-surface-variant">{item.categoryId || "—"}</td>
                       <td className="py-3 px-4 text-right font-semibold">{item.quantity ?? 0}</td>
                       <td className="py-3 px-4 text-right hidden sm:table-cell text-on-surface-variant">{formatCurrency(item.sellingPrice ?? 0)}</td>
@@ -358,18 +326,10 @@ export default function InventoryPage() {
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEdit(item)}
-                            title="Edit"
-                            className="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors"
-                          >
+                          <button onClick={() => openEdit(item)} title="Edit" className="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
-                          <button
-                            onClick={() => setDeleteId(item.id)}
-                            title="Delete"
-                            className="p-1.5 rounded hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                          >
+                          <button onClick={() => setDeleteId(item.id)} title="Delete" className="p-1.5 rounded hover:bg-error-container text-on-surface-variant hover:text-error transition-colors">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
@@ -403,6 +363,29 @@ export default function InventoryPage() {
                 <div className="bg-error-container text-error text-body-sm rounded p-3">{formError}</div>
               )}
 
+              {/* Quick-add presets (only on new item) */}
+              {!editItem && (
+                <div>
+                  <p className="font-body-sm text-on-surface-variant mb-2">Quick add common item:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRESETS.map(p => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, name: p.name, unit: p.unit, categoryId: p.categoryId }))}
+                        className={`px-3 py-1 rounded-full border text-body-sm transition-all ${
+                          form.name === p.name
+                            ? 'bg-primary text-on-primary border-primary'
+                            : 'border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Name */}
               <div>
                 <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-name">
@@ -413,29 +396,15 @@ export default function InventoryPage() {
                   ref={firstInputRef}
                   type="text"
                   required
-                  placeholder="e.g. A4 Paper Ream"
+                  placeholder="e.g. Ink, Zip Roll…"
                   value={form.name}
                   onChange={e => setField("name", e.target.value)}
                   className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
                 />
               </div>
 
-              {/* SKU + Unit */}
+              {/* Unit + Category */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-sku">
-                    SKU <span className="text-error">*</span>
-                  </label>
-                  <input
-                    id="inv-sku"
-                    type="text"
-                    required
-                    placeholder="A4-80GSM-001"
-                    value={form.sku}
-                    onChange={e => setField("sku", e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-mono text-body-md text-primary placeholder:text-outline placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow tracking-wider"
-                  />
-                </div>
                 <div>
                   <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-unit">
                     Unit <span className="text-error">*</span>
@@ -444,87 +413,43 @@ export default function InventoryPage() {
                     id="inv-unit"
                     type="text"
                     required
-                    placeholder="pcs, kg, ream…"
+                    placeholder="pcs, kg, litre, roll…"
                     value={form.unit}
                     onChange={e => setField("unit", e.target.value)}
                     className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
                   />
                 </div>
-              </div>
-
-              {/* Category & Item Type */}
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-category">Category</label>
                   <input
                     id="inv-category"
                     type="text"
-                    placeholder="e.g. Paper, Ink…"
+                    placeholder="e.g. Consumables…"
                     value={form.categoryId}
                     onChange={e => setField("categoryId", e.target.value)}
                     className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
                   />
                 </div>
-                <div>
-                  <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-type">Item Type</label>
-                  <select
-                    id="inv-type"
-                    value={form.itemType}
-                    onChange={e => setField("itemType", e.target.value)}
-                    className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
-                  >
-                    <option value="raw_material">Raw Material</option>
-                    <option value="finished_good">Finished Good</option>
-                  </select>
-                </div>
               </div>
 
-              {/* Qty + Reorder */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-qty">Quantity</label>
-                  <input
-                    id="inv-qty"
-                    type="number"
-                    min="0"
-                    value={form.quantity}
-                    onChange={e => setField("quantity", e.target.value)}
-                    className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
-                  />
-                </div>
-                <div>
-                  <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-reorder">Reorder Level</label>
-                  <input
-                    id="inv-reorder"
-                    type="number"
-                    min="0"
-                    value={form.reorderLevel}
-                    onChange={e => setField("reorderLevel", e.target.value)}
-                    className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
-                  />
-                </div>
+              {/* Qty */}
+              <div>
+                <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-qty">Quantity</label>
+                <input
+                  id="inv-qty"
+                  type="number"
+                  min="0"
+                  value={form.quantity}
+                  onChange={e => setField("quantity", e.target.value)}
+                  className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
+                />
               </div>
 
               {/* Prices */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-buy">
-                    Buying Price (₹) <span className="text-error">*</span>
-                  </label>
-                  <input
-                    id="inv-buy"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={form.buyingPrice}
-                    onChange={e => setField("buyingPrice", e.target.value)}
-                    className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow"
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block font-body-sm text-body-sm text-on-surface-variant mb-1.5" htmlFor="inv-sell">
-                    Selling Price (₹) <span className="text-error">*</span>
+                    Price (₹) <span className="text-error">*</span>
                   </label>
                   <input
                     id="inv-sell"
