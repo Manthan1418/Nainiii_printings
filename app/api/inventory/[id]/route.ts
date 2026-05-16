@@ -3,9 +3,9 @@ import { firestore } from '../../../../lib/firebaseAdmin'
 
 export async function PATCH(
   req: Request,
-  context: any
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const params = await context.params;
+  const { id } = await params;
   try {
     const body = await req.json()
     const data = {
@@ -15,8 +15,8 @@ export async function PATCH(
       reorderLevel: Number(body.reorderLevel) || 0,
       updatedAt: new Date().toISOString(),
     }
-    await firestore.collection('inventoryItems').doc(params.id).update(data)
-    return NextResponse.json({ id: params.id, ...data })
+    await firestore.collection('inventoryItems').doc(id).update(data)
+    return NextResponse.json({ id, ...data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -24,11 +24,11 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  context: any
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const params = await context.params;
+  const { id } = await params;
   try {
-    await firestore.collection('inventoryItems').doc(params.id).delete()
+    await firestore.collection('inventoryItems').doc(id).delete()
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

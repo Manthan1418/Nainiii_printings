@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
-export async function DELETE(_req: Request, context: any) {
-  const params = await context.params;
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    await firestore.collection('parties').doc(params.id).delete()
+    await firestore.collection('parties').doc(id).delete()
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function PATCH(req: Request, context: any) {
-  const params = await context.params;
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const body = await req.json()
     const { name, phone, email, address, type, gstin, notes } = body
@@ -34,17 +34,17 @@ export async function PATCH(req: Request, context: any) {
       updatedAt: new Date().toISOString(),
     }
 
-    await firestore.collection('parties').doc(params.id).update(data)
-    return NextResponse.json({ id: params.id, ...data })
+    await firestore.collection('parties').doc(id).update(data)
+    return NextResponse.json({ id, ...data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function GET(_req: Request, context: any) {
-  const params = await context.params;
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const doc = await firestore.collection('parties').doc(params.id).get()
+    const doc = await firestore.collection('parties').doc(id).get()
     if (!doc.exists) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
