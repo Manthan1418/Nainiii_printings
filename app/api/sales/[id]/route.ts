@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
 // ── GET /api/sales/[id] ──────────────────────────────────────────────────────
-export async function GET(_req: Request, context: any) {
-  const params = await context.params;
-  const doc = await firestore.collection('sales').doc(params.id).get()
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const doc = await firestore.collection('sales').doc(id).get()
   if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const itemsSnap = await doc.ref.collection('items').get()
   return NextResponse.json({
@@ -15,9 +15,9 @@ export async function GET(_req: Request, context: any) {
 }
 
 // ── PUT /api/sales/[id] ──────────────────────────────────────────────────────
-export async function PUT(req: Request, context: any) {
-  const params = await context.params;
-  const saleRef = firestore.collection('sales').doc(params.id)
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const saleRef = firestore.collection('sales').doc(id)
 
   // Guard: block edits on paid orders
   const existing = await saleRef.get()
@@ -85,9 +85,9 @@ export async function PUT(req: Request, context: any) {
 }
 
 // ── DELETE /api/sales/[id] ───────────────────────────────────────────────────
-export async function DELETE(_req: Request, context: any) {
-  const params = await context.params;
-  const saleRef = firestore.collection('sales').doc(params.id)
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const saleRef = firestore.collection('sales').doc(id)
 
   // Guard: block deletes on paid orders
   const existing = await saleRef.get()
