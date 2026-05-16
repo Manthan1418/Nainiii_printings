@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   try {
     await firestore.collection('parties').doc(id).delete()
     return NextResponse.json({ ok: true })
@@ -11,8 +11,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   try {
     const body = await req.json()
     const { name, phone, email, address, type, gstin, notes } = body
@@ -41,8 +41,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   try {
     const doc = await firestore.collection('parties').doc(id).get()
     if (!doc.exists) {
