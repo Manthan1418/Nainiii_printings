@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
 // ── GET /api/sales/[id] ──────────────────────────────────────────────────────
-export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function GET(_req: Request, context: any) {
+  const params = await context.params;
   const doc = await firestore.collection('sales').doc(params.id).get()
   if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const itemsSnap = await doc.ref.collection('items').get()
@@ -15,8 +15,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
 }
 
 // ── PUT /api/sales/[id] ──────────────────────────────────────────────────────
-export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function PUT(req: Request, context: any) {
+  const params = await context.params;
   const saleRef = firestore.collection('sales').doc(params.id)
 
   // Guard: block edits on paid orders
@@ -85,8 +85,8 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
 }
 
 // ── DELETE /api/sales/[id] ───────────────────────────────────────────────────
-export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function DELETE(_req: Request, context: any) {
+  const params = await context.params;
   const saleRef = firestore.collection('sales').doc(params.id)
 
   // Guard: block deletes on paid orders
