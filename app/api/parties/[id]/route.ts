@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
-export async function DELETE(
-  _req: Request,
-  context: any
-) {
+export async function DELETE(_req: Request, context: any) {
   const params = await context.params;
   try {
     await firestore.collection('parties').doc(params.id).delete()
@@ -14,10 +11,7 @@ export async function DELETE(
   }
 }
 
-export async function PATCH(
-  req: Request,
-  context: any
-) {
+export async function PATCH(req: Request, context: any) {
   const params = await context.params;
   try {
     const body = await req.json()
@@ -47,17 +41,19 @@ export async function PATCH(
   }
 }
 
-export async function GET(
-  _req: Request,
-  context: any
-) {
+export async function GET(_req: Request, context: any) {
   const params = await context.params;
   try {
     const doc = await firestore.collection('parties').doc(params.id).get()
     if (!doc.exists) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
-    return NextResponse.json({ id: doc.id, ...doc.data() })
+    const data = doc.data() as any
+    return NextResponse.json({
+      id: doc.id,
+      ...data,
+      outstandingBalance: data.outstandingBalance ?? 0,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import Navbar from '../../components/Navbar'
 import Sidebar from '../../components/Sidebar'
 import BottomNav from '../../components/BottomNav'
+import { Toaster } from '../../components/Toast'
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {children}
       </div>
       <BottomNav />
+      <Toaster />
     </div>
   )
 }

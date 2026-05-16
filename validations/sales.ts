@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const SaleItemSchema = z.object({ 
   itemId: z.string().optional(), 
   name: z.string().optional(),
-  size: z.string().optional(),
+  unit: z.string().optional(),
   quantity: z.number().int().min(1), 
   price: z.number().min(0) 
 })
@@ -16,4 +16,7 @@ export const SaleCreateSchema = z.object({
   status: z.enum(['Pending', 'In Production', 'Completed', 'Delivered', 'Paid']).optional(),
   items: z.array(SaleItemSchema).min(1),
   notes: z.string().optional(),
+  deliveryCharge: z.number().min(0).optional().default(0),
+  previousBalance: z.number().min(0).optional().default(0),
+  amountPaid: z.number().min(0).optional().default(0),
 })

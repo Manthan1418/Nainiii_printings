@@ -166,11 +166,10 @@ export default function InventoryPage() {
   const filtered = items.filter(item => {
     const matchSearch =
       item.name?.toLowerCase().includes(search.toLowerCase()) ||
-      item.sku?.toLowerCase().includes(search.toLowerCase()) ||
       item.categoryId?.toLowerCase().includes(search.toLowerCase());
 
     const qty = item.quantity ?? 0;
-    const reorder = item.reorderLevel ?? 10;
+    const reorder = 10;
     const matchStatus =
       filterStatus === "all" ||
       (filterStatus === "out" && qty === 0) ||

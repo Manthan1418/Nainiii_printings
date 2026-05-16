@@ -6,22 +6,37 @@ export async function POST(req: Request) {
   const body = await req.json()
   const parsed = SaleCreateSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 })
-  const { customer, customerId, orderType, status, items, notes } = parsed.data
+  const { customer, customerId, orderType, status, items, notes, deliveryCharge, previousBalance, amountPaid } = parsed.data
 
-  const total = items.reduce((s: number, it: any) => s + it.quantity * it.price, 0)
+  const itemsTotal = items.reduce((s: number, it: any) => s + it.quantity * it.price, 0)
+  const total = itemsTotal + (deliveryCharge || 0)
+  const balanceDue = total + (previousBalance || 0) - (amountPaid || 0)
 
   const saleRef = firestore.collection('sales').doc()
   const initialStatus = status || 'Pending'
 
   await firestore.runTransaction(async (tx) => {
-    tx.set(saleRef, { invoiceNo: `INV-${Date.now()}`, customer, customerId: customerId || null, orderType: orderType || 'bag', status: initialStatus, totalAmount: total, notes, createdAt: new Date().toISOString() })
+    tx.set(saleRef, {
+      invoiceNo: `INV-${Date.now()}`,
+      customer,
+      customerId: customerId || null,
+      orderType: orderType || 'bag',
+      status: initialStatus,
+      totalAmount: total,
+      deliveryCharge: deliveryCharge || 0,
+      previousBalance: previousBalance || 0,
+      amountPaid: amountPaid || 0,
+      balanceDue: Math.max(0, balanceDue),
+      notes,
+      createdAt: new Date().toISOString(),
+    })
 
     for (const it of items) {
       const saleItemRef = saleRef.collection('items').doc()
       tx.set(saleItemRef, { 
         itemId: it.itemId || null, 
         name: it.name || '',
-        size: it.size || '',
+        unit: it.unit || 'pcs',
         quantity: it.quantity, 
         price: it.price 
       })
@@ -38,6 +53,12 @@ export async function POST(req: Request) {
           }
         }
       }
+    }
+
+    // Sync party outstanding balance
+    if (customerId) {
+      const partyRef = firestore.collection('parties').doc(customerId)
+      tx.update(partyRef, { outstandingBalance: Math.max(0, balanceDue) })
     }
   })
 
