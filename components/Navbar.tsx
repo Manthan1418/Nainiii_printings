@@ -2,14 +2,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
-import { firebaseAuth } from '../lib/firebaseClient';
+import { getFirebaseAuth } from '../lib/firebaseClient';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await signOut(firebaseAuth);
+    await signOut(getFirebaseAuth());
     await fetch('/api/auth/session', { method: 'DELETE' });
     router.push('/login');
     router.refresh();

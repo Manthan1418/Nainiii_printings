@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, type Auth } from 'firebase/auth'
 
 const clientConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,6 +11,11 @@ const clientConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-if (!getApps().length) initializeApp(clientConfig)
+let _firebaseAuth: Auth | null = null
 
-export const firebaseAuth = getAuth()
+export function getFirebaseAuth(): Auth {
+  if (_firebaseAuth) return _firebaseAuth
+  if (!getApps().length) initializeApp(clientConfig)
+  _firebaseAuth = getAuth()
+  return _firebaseAuth
+}

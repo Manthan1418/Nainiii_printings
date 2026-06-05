@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { firebaseAuth } from '../../lib/firebaseClient';
+import { getFirebaseAuth } from '../../lib/firebaseClient';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function LoginPage() {
   const onSubmit = async (data: any) => {
     try {
       setError('');
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, data.email, data.password);
+      const userCredential = await signInWithEmailAndPassword(getFirebaseAuth(), data.email, data.password);
       const token = await userCredential.user.getIdToken();
       
       const res = await fetch('/api/auth/session', {

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { firebaseAuth } from '../../lib/firebaseClient'
+import { getFirebaseAuth } from '../../lib/firebaseClient'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -15,7 +15,7 @@ export default function SignupPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const userCred = await createUserWithEmailAndPassword(firebaseAuth as any, email, password)
+      const userCred = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password)
       const idToken = await userCred.user.getIdToken()
       const res = await fetch('/api/auth/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) })
       if (res.ok) router.push('/dashboard')
