@@ -37,7 +37,7 @@ export default function Navbar() {
           ? 'text-primary bg-surface-container-high'
           : 'text-on-surface-variant hover:bg-surface-container-high'
       }`}
-    >
+    > 
       {item.label}
     </Link>
   ))}
