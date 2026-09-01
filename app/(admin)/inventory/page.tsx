@@ -8,7 +8,9 @@ interface InventoryItem {
   unit: string;
   sellingPrice: number;
   categoryId?: string;
+  type?: 'raw-material' | 'finished-product';
   notes?: string;
+  soldAt?: string;
 }
 
 const EMPTY_FORM = {
@@ -17,6 +19,7 @@ const EMPTY_FORM = {
   unit: "",
   sellingPrice: 0,
   categoryId: "",
+  type: "raw-material" as const,
   notes: "",
 };
 
@@ -58,7 +61,10 @@ export default function InventoryPage() {
     try {
       const res = await fetch("/api/inventory");
       const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
+      const pipelineItems = Array.isArray(data)
+        ? data.filter((item: InventoryItem) => item.type !== 'finished-product' || (!item.soldAt && (item.quantity ?? 0) > 0))
+        : [];
+      setItems(pipelineItems);
     } catch {
       setItems([]);
     } finally {
@@ -84,6 +90,7 @@ export default function InventoryPage() {
       unit: item.unit,
       sellingPrice: item.sellingPrice,
       categoryId: item.categoryId ?? "",
+      type: "raw-material",
       notes: item.notes ?? "",
     });
     setFormError("");
@@ -112,6 +119,7 @@ export default function InventoryPage() {
         ...form,
         quantity: Number(form.quantity) || 0,
         sellingPrice: Number(form.sellingPrice) || 0,
+        type: 'raw-material',
       };
 
       let res: Response;
@@ -125,7 +133,8 @@ export default function InventoryPage() {
         });
         if (res.status === 404 || res.status === 405) {
           // PATCH not implemented — update local state only
-          setItems(prev => prev.map(i => i.id === editItem.id ? { ...i, ...payload } : i));
+          const updatedItem: InventoryItem = { ...editItem, ...payload, type: 'raw-material' };
+          setItems(prev => prev.map(i => i.id === editItem.id ? updatedItem : i));
           closeModal();
           return;
         }
@@ -194,9 +203,9 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="font-h1 text-h1 text-primary">Inventory</h1>
+          <h1 className="font-h1 text-h1 text-primary">Raw Materials</h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">
-            Manage stock levels, pricing, and product catalog.
+            Add purchased materials here. These will be used in production and converted into finished products.
           </p>
         </div>
         <button
@@ -212,8 +221,8 @@ export default function InventoryPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total Items", value: loading ? "…" : items.length, icon: "inventory_2", color: "text-primary" },
-          { label: "Stock Value", value: loading ? "…" : formatCurrency(totalValue), icon: "payments", color: "text-primary" },
+          { label: "Materials Purchased", value: loading ? "…" : items.length, icon: "shopping_cart", color: "text-primary" },
+          { label: "Total Units", value: loading ? "…" : items.reduce((s, i) => s + (i.quantity ?? 0), 0), icon: "stacks", color: "text-primary" },
           { label: "Low Stock", value: loading ? "…" : counts.low, icon: "warning", color: "text-[#e65100]" },
           { label: "Out of Stock", value: loading ? "…" : counts.out, icon: "error", color: "text-error" },
         ].map(card => (

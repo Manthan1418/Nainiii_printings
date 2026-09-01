@@ -152,9 +152,9 @@ export default function PartiesPage() {
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="font-h1 text-h1 text-primary">Parties</h1>
+          <h1 className="font-h1 text-h1 text-primary">Customers</h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">
-            Manage customers, suppliers, and trading partners.
+            Manage customers who receive finished products. Track contact and delivery information.
           </p>
         </div>
         <button

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
+export const runtime = 'nodejs'
+
 // ── GET /api/sales/[id] ──────────────────────────────────────────────────────
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;

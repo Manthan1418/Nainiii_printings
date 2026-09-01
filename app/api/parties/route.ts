@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { firestore } from '../../../lib/firebaseAdmin'
 
+export const runtime = 'nodejs'
+
 export async function GET() {
   try {
     const snap = await firestore.collection('parties').orderBy('createdAt', 'desc').get()

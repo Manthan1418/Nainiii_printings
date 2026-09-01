@@ -4,11 +4,11 @@ import { usePathname } from 'next/navigation';
 
 const navItems = [
   { label: 'Dashboard', href: '/', icon: 'analytics' },
-  { label: 'Stock', href: '/inventory', icon: 'inventory' },
-  { label: 'Sales', href: '/sales', icon: 'receipt_long' },
+  { label: 'Materials', href: '/inventory', icon: 'shopping_cart' },
   { label: 'Production', href: '/production', icon: 'precision_manufacturing' },
+  { label: 'Sales', href: '/sales', icon: 'local_shipping' },
+  { label: 'Customers', href: '/parties', icon: 'group' },
   { label: 'Finance', href: '/finance', icon: 'account_balance_wallet' },
-  { label: 'Parties', href: '/parties', icon: 'group' },
 ];
 
 export default function BottomNav() {

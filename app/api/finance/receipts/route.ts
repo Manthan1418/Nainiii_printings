@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
+export const runtime = 'nodejs'
+
 export async function GET() {
   const snap = await firestore.collection('receipts').orderBy('date', 'desc').get()
   const rec = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }))

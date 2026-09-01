@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { firestore } from '../../../lib/firebaseAdmin'
 
+export const runtime = 'nodejs'
+
 export async function GET() {
   try {
     const snap = await firestore.collection('production_batches').orderBy('createdAt', 'desc').get()
@@ -14,9 +16,10 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { productType, productSize, quantity, producedQuantity, wasteQuantity, costPerPcs, notes, status } = body
+    const { finishedProductId, rawMaterials, producedQuantity, wasteQuantity, costPerPcs, notes, status } = body
+    // rawMaterials: [{ itemId, quantity }, ...]
 
-    const totalCost = (producedQuantity || quantity) * (costPerPcs || 0)
+    const totalCost = (producedQuantity || 0) * (costPerPcs || 0)
     const initialStatus = status || 'Pending'
     
     const batchRef = firestore.collection('production_batches').doc()
@@ -25,9 +28,8 @@ export async function POST(req: Request) {
       // 1. Create the production batch document
       tx.set(batchRef, {
         batchNo: `PRD-${Date.now()}`,
-        productType,
-        productSize,
-        quantity: Number(quantity),
+        finishedProductId: finishedProductId || '',
+        rawMaterials: rawMaterials || [],
         producedQuantity: Number(producedQuantity) || 0,
         wasteQuantity: Number(wasteQuantity) || 0,
         costPerPcs: Number(costPerPcs) || 0,
@@ -38,20 +40,30 @@ export async function POST(req: Request) {
       })
 
       if (initialStatus === 'Completed') {
-        // 2. Add Finished Good (if applicable)
+        // 2. Consume raw materials
+        if (Array.isArray(rawMaterials) && rawMaterials.length > 0) {
+          for (const rm of rawMaterials) {
+            const rmRef = firestore.collection('inventoryItems').doc(rm.itemId)
+            const rmSnap = await tx.get(rmRef)
+            if (rmSnap.exists) {
+              const rmData = rmSnap.data() as any
+              const newQty = Math.max(0, (rmData.quantity ?? 0) - Number(rm.quantity))
+              tx.update(rmRef, { quantity: newQty })
+              const histRef = firestore.collection('inventoryHistory').doc()
+              tx.set(histRef, { itemId: rm.itemId, change: -Number(rm.quantity), reason: `Consumed in Production Batch ${batchRef.id}`, createdAt: new Date().toISOString() })
+            }
+          }
+        }
 
-        // 3. Add Finished Good
-        // Try to find if this finished good exists in inventory by name/size. If not, maybe create?
-        // Or if we require selecting an existing finished good.
-        // Let's assume the body passes a `finishedGoodItemId` if it exists.
-        if (body.finishedGoodItemId) {
-          const fgRef = firestore.collection('inventoryItems').doc(body.finishedGoodItemId)
+        // 3. Add/Update Finished Product
+        if (finishedProductId) {
+          const fgRef = firestore.collection('inventoryItems').doc(finishedProductId)
           const fgSnap = await tx.get(fgRef)
           if (fgSnap.exists) {
             const fgData = fgSnap.data() as any
             tx.update(fgRef, { quantity: (fgData.quantity ?? 0) + Number(producedQuantity) })
             const histRef = firestore.collection('inventoryHistory').doc()
-            tx.set(histRef, { itemId: body.finishedGoodItemId, change: Number(producedQuantity), reason: `Production Batch ${batchRef.id}`, createdAt: new Date().toISOString() })
+            tx.set(histRef, { itemId: finishedProductId, change: Number(producedQuantity), reason: `Produced in Batch ${batchRef.id}`, createdAt: new Date().toISOString() })
           }
         }
 

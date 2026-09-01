@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { firestore } from '../../../lib/firebaseAdmin'
 import { InventoryCreateSchema } from '../../../validations/inventory'
 
+export const runtime = 'nodejs'
+
 export async function GET() {
   const snap = await firestore.collection('inventoryItems').get()
   const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))

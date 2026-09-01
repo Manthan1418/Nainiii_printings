@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { firestore } from '../../../lib/firebaseAdmin'
 import { SaleCreateSchema } from '../../../validations/sales'
 
+export const runtime = 'nodejs'
+
 export async function POST(req: Request) {
   const body = await req.json()
   const parsed = SaleCreateSchema.safeParse(body)
@@ -41,13 +43,16 @@ export async function POST(req: Request) {
         price: it.price 
       })
 
-      if (it.itemId && initialStatus === 'Completed') {
+      if (it.itemId) {
         const invRef = firestore.collection('inventoryItems').doc(it.itemId)
         const invSnap = await tx.get(invRef)
         if (invSnap.exists) {
           const inv = invSnap.data() as any
           if ((inv.quantity ?? 0) >= it.quantity) {
-            tx.update(invRef, { quantity: (inv.quantity ?? 0) - it.quantity })
+            tx.update(invRef, {
+              quantity: (inv.quantity ?? 0) - it.quantity,
+              soldAt: new Date().toISOString(),
+            })
             const histRef = firestore.collection('inventoryHistory').doc()
             tx.set(histRef, { itemId: it.itemId, change: -it.quantity, reason: `Sale ${saleRef.id}`, createdAt: new Date().toISOString() })
           }

@@ -8,9 +8,11 @@ import { printInvoice } from '../../../components/PrintInvoice';
 type ItemRow = {
   id: number;           // local key only
   name: string;
+  productId?: string;   // reference to inventory item
   unit: string;         // e.g. pcs, kg, m
   quantity: number;
   price: number;
+  maxQuantity?: number; // max available stock
 };
 
 const blankItem = (id: number): ItemRow => ({
@@ -25,6 +27,7 @@ export default function SalesPage() {
   const { success, error: toastError, warning } = useToast();
   const [sales, setSales] = useState<any[]>([]);
   const [parties, setParties] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,31 +69,98 @@ export default function SalesPage() {
     finally { setFetchingBalance(false); }
   };
 
-  const openEdit = (sale: any) => {
-    setEditingSale(sale);
-    setValue('customerId', sale.customerId || '');
-    setValue('status', sale.status || 'Pending');
-    setValue('notes', sale.notes || '');
-    const rows: ItemRow[] = (sale.items || []).map((it: any, i: number) => ({
-      id: i + 1,
-      name: it.name || '',
-      unit: it.unit || 'pcs',
-      quantity: it.quantity || 1,
-      price: it.price || 0,
-    }));
-    setItems(rows.length ? rows : [blankItem(1)]);
-    setNextId(rows.length + 2);
-    setDeliveryCharge(sale.deliveryCharge || 0);
-    setPreviousBalance(sale.previousBalance || 0);
-    setAmountPaid(sale.amountPaid || 0);
-    setItemErrors(null);
-    setIsModalOpen(true);
+  const openEdit = async (sale: any) => {
+    try {
+      const [saleRes, partiesRes, inventoryRes] = await Promise.all([
+        fetch(`/api/sales/${sale.id}`),
+        fetch('/api/parties'),
+        fetch('/api/inventory'),
+      ]);
+
+      const saleDetails = saleRes.ok ? await saleRes.json() : sale;
+      const partyList = partiesRes.ok ? await partiesRes.json() : parties;
+      const inventoryData = inventoryRes.ok ? await inventoryRes.json() : inventory;
+
+      const allInventory = Array.isArray(inventoryData) ? inventoryData : [];
+      const sellableItems = allInventory.filter((item: any) => !item.soldAt && (item.quantity ?? 0) > 0);
+
+      const selectedItems = (saleDetails.items || []).map((it: any) => {
+        const linked = allInventory.find((inv: any) => inv.id === it.itemId || inv.id === it.productId);
+        const byName = linked || allInventory.find((inv: any) =>
+          (inv.name || '').trim().toLowerCase() === (it.name || '').trim().toLowerCase()
+        );
+        return {
+          id: byName?.id || it.itemId || it.productId,
+          name: it.name || byName?.name || '',
+          quantity: byName?.quantity ?? it.quantity ?? 0,
+          unit: it.unit || byName?.unit || 'pcs',
+          sellingPrice: it.price ?? byName?.sellingPrice ?? 0,
+          soldAt: 'edit-only',
+        };
+      }).filter((it: any) => it.id);
+
+      const inventoryForEdit = [...sellableItems];
+      for (const item of selectedItems) {
+        if (!inventoryForEdit.some((existing: any) => existing.id === item.id)) {
+          inventoryForEdit.push(item);
+        }
+      }
+
+      const normalizedParties = Array.isArray(partyList) ? partyList : [];
+      setParties(normalizedParties);
+      setInventory(inventoryForEdit);
+
+      const customerName = (saleDetails.customer?.name || saleDetails.customer || '').toString().trim().toLowerCase();
+      const matchedParty = normalizedParties.find((p: any) => (p.name || '').toString().trim().toLowerCase() === customerName);
+      const resolvedCustomerId = saleDetails.customerId || matchedParty?.id || '';
+
+      const rows: ItemRow[] = (saleDetails.items || []).map((it: any, i: number) => {
+        const linked = inventoryForEdit.find((inv: any) => inv.id === it.itemId || inv.id === it.productId);
+        const byName = linked || inventoryForEdit.find((inv: any) =>
+          (inv.name || '').trim().toLowerCase() === (it.name || '').trim().toLowerCase()
+        );
+        return {
+          id: i + 1,
+          name: it.name || byName?.name || '',
+          productId: byName?.id || it.itemId || it.productId || '',
+          unit: it.unit || byName?.unit || 'pcs',
+          quantity: it.quantity || 1,
+          price: it.price ?? byName?.sellingPrice ?? 0,
+          maxQuantity: byName?.quantity,
+        };
+      });
+
+      setEditingSale(saleDetails);
+      setOrderType(saleDetails.orderType || 'bag');
+      reset({
+        customerId: resolvedCustomerId,
+        status: saleDetails.status || 'Pending',
+        notes: saleDetails.notes || '',
+      });
+      setItems(rows.length ? rows : [blankItem(1)]);
+      setNextId((rows.length || 1) + 1);
+      setDeliveryCharge(saleDetails.deliveryCharge || 0);
+      setPreviousBalance(saleDetails.previousBalance || 0);
+      setAmountPaid(saleDetails.amountPaid || 0);
+      setItemErrors(null);
+      setIsModalOpen(true);
+    } catch {
+      toastError('Failed to load saved order details. Please try again.');
+    }
   };
 
   const onEdit = async (data: any) => {
     if (!editingSale) return;
-    const invalid = items.some(r => !r.name.trim() || r.quantity < 1 || r.price < 0);
-    if (invalid) { setItemErrors('Please fill in all item rows completely.'); return; }
+    const invalid = items.some(r => !r.name.trim() || r.quantity < 1 || r.price < 0 || (r.productId && r.quantity > (r.maxQuantity || 0)));
+    if (invalid) {
+      const overStockItem = items.find(r => r.productId && r.quantity > (r.maxQuantity || 0));
+      if (overStockItem) {
+        setItemErrors(`Quantity for "${overStockItem.name}" exceeds available stock (max: ${overStockItem.maxQuantity}).`);
+      } else {
+        setItemErrors('Please fill in all item rows completely.');
+      }
+      return;
+    }
     setItemErrors(null);
     try {
       const selectedParty = parties.find(p => p.id === data.customerId);
@@ -103,7 +173,7 @@ export default function SalesPage() {
         deliveryCharge: deliveryCharge || 0,
         previousBalance: previousBalance || 0,
         amountPaid: amountPaid || 0,
-        items: items.map(r => ({ name: r.name, unit: r.unit || 'pcs', quantity: r.quantity, price: r.price })),
+        items: items.map(r => ({ itemId: r.productId || undefined, name: r.name, unit: r.unit || 'pcs', quantity: r.quantity, price: r.price })),
       };
       const res = await fetch(`/api/sales/${editingSale.id}`, {
         method: 'PUT',
@@ -130,16 +200,50 @@ export default function SalesPage() {
 
   // Reset items when order type changes
   useEffect(() => {
+    if (editingSale) return;
     setItems([blankItem(1)]);
     setNextId(2);
     setItemErrors(null);
   }, [orderType]);
 
   useEffect(() => {
-    if (isModalOpen && parties.length === 0) {
-      fetch('/api/parties').then(r => r.json()).then(data => setParties(Array.isArray(data) ? data : [])).catch(console.error);
+    if (isModalOpen) {
+      if (parties.length === 0) {
+        fetch('/api/parties').then(r => r.json()).then(data => setParties(Array.isArray(data) ? data : [])).catch(console.error);
+      }
+      if (inventory.length === 0) {
+        fetch('/api/inventory')
+          .then(r => r.json())
+          .then(data => {
+            const sellableItems = Array.isArray(data)
+              ? data.filter((item: any) => !item.soldAt && (item.quantity ?? 0) > 0)
+              : [];
+            if (isModalOpen && editingSale?.items?.length) {
+              const selectedItems = editingSale.items
+                .map((it: any) => ({
+                  id: it.itemId || it.productId,
+                  name: it.name || '',
+                  quantity: it.quantity || 0,
+                  unit: it.unit || 'pcs',
+                  sellingPrice: it.price || 0,
+                  soldAt: 'edit-only',
+                }))
+                .filter((it: any) => it.id);
+              const mergedItems = [...sellableItems];
+              for (const item of selectedItems) {
+                if (!mergedItems.some((existing: any) => existing.id === item.id)) {
+                  mergedItems.push(item);
+                }
+              }
+              setInventory(mergedItems);
+            } else {
+              setInventory(sellableItems);
+            }
+          })
+          .catch(console.error);
+      }
     }
-  }, [isModalOpen, parties.length]);
+  }, [isModalOpen, parties.length, inventory.length]);
 
   // ─── Item row helpers ───────────────────────────────────────────────────────
   const updateItem = (id: number, field: keyof Omit<ItemRow, 'id'>, value: string | number) => {
@@ -157,10 +261,15 @@ export default function SalesPage() {
 
   // ─── Submit ─────────────────────────────────────────────────────────────────
   const onSubmit = async (data: any) => {
-    // Validate all rows are filled
-    const invalid = items.some(r => !r.name.trim() || r.quantity < 1 || r.price < 0);
+    // Validate all rows are filled and quantity doesn't exceed stock
+    const invalid = items.some(r => !r.name.trim() || r.quantity < 1 || r.price < 0 || (r.productId && r.quantity > (r.maxQuantity || 0)));
     if (invalid) {
-      setItemErrors('Please fill in all item rows completely.');
+      const overStockItem = items.find(r => r.productId && r.quantity > (r.maxQuantity || 0));
+      if (overStockItem) {
+        setItemErrors(`Quantity for "${overStockItem.name}" exceeds available stock (max: ${overStockItem.maxQuantity}).`);
+      } else {
+        setItemErrors('Please fill in all item rows completely.');
+      }
       return;
     }
     setItemErrors(null);
@@ -179,13 +288,13 @@ export default function SalesPage() {
         previousBalance: previousBalance || 0,
         amountPaid: amountPaid || 0,
         items: items.map(r => ({
+          itemId: r.productId || undefined,
           name: r.name,
           unit: r.unit || 'pcs',
           quantity: r.quantity,
           price: r.price,
         })),
       };
-
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -235,9 +344,9 @@ export default function SalesPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="font-h1 text-h1 text-primary">Sales &amp; Orders</h1>
+          <h1 className="font-h1 text-h1 text-primary">Sales Orders</h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">
-            Track, manage, and process recent transactions.
+            Deliver finished products to customers. Track payments and shipments here.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -468,16 +577,55 @@ export default function SalesPage() {
 
                     {/* Rows */}
                     <div className="divide-y divide-outline-variant">
-                      {items.map((row) => (
+                      {items.map((row) => {
+                        return (
                         <div key={row.id} className="grid grid-cols-[1fr_70px_80px_90px_36px] gap-0 items-center px-3 py-2">
-                          {/* Product Name */}
-                          <input
-                            value={row.name}
-                            onChange={e => updateItem(row.id, 'name', e.target.value)}
-                            placeholder="e.g. Non-Woven Bag"
-                            className="w-full px-2 py-1.5 border border-outline-variant rounded text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary mr-1"
-                            required
-                          />
+                          {/* Product Name - Editable text with inventory picker */}
+                          <div className="flex gap-1 items-center mr-1">
+                            <input
+                              type="text"
+                              value={row.name}
+                              onChange={e => {
+                                const name = e.target.value;
+                                if (row.productId) {
+                                  const product = inventory.find(inv => inv.id === row.productId);
+                                  if (product && name !== product.name) {
+                                    updateItem(row.id, 'productId', '');
+                                    updateItem(row.id, 'maxQuantity', 0);
+                                  }
+                                }
+                                updateItem(row.id, 'name', name);
+                              }}
+                              placeholder="Product name"
+                              className="flex-1 min-w-0 px-2 py-1.5 border border-outline-variant rounded text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary"
+                              required
+                            />
+                            <select
+                              value=""
+                              onChange={e => {
+                                const productId = e.target.value;
+                                if (!productId) return;
+                                const product = inventory.find(inv => inv.id === productId);
+                                if (product) {
+                                  updateItem(row.id, 'name', product.name);
+                                  updateItem(row.id, 'productId', productId);
+                                  updateItem(row.id, 'unit', product.unit || 'pcs');
+                                  updateItem(row.id, 'price', product.sellingPrice || 0);
+                                  updateItem(row.id, 'maxQuantity', product.quantity || 0);
+                                  updateItem(row.id, 'quantity', Math.min(row.quantity, product.quantity || 1));
+                                }
+                              }}
+                              className="flex-shrink-0 w-9 px-0 py-1.5 border border-outline-variant rounded text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary text-center text-lg"
+                              title="Select from inventory"
+                            >
+                              <option value="">+</option>
+                              {inventory.map(inv => (
+                                <option key={inv.id} value={inv.id}>
+                                  {inv.name} ({inv.quantity} {inv.unit || 'pcs'})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           {/* Unit */}
                           <select
                             value={row.unit}
@@ -495,8 +643,14 @@ export default function SalesPage() {
                           <input
                             type="number"
                             min={1}
+                            max={row.maxQuantity || 999999}
                             value={row.quantity}
-                            onChange={e => updateItem(row.id, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+                            onChange={e => {
+                              const val = parseInt(e.target.value) || 1;
+                              const maxAllowed = row.maxQuantity || 999999;
+                              updateItem(row.id, 'quantity', Math.min(Math.max(1, val), maxAllowed));
+                            }}
+                            title={row.maxQuantity ? `Max available: ${row.maxQuantity}` : 'Quantity'}
                             className="w-full px-2 py-1.5 border border-outline-variant rounded text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary mx-1 text-center"
                           />
                           {/* Price per unit */}
@@ -506,6 +660,7 @@ export default function SalesPage() {
                             step={0.01}
                             value={row.price}
                             onChange={e => updateItem(row.id, 'price', parseFloat(e.target.value) || 0)}
+                            title="Price per unit"
                             className="w-full px-2 py-1.5 border border-outline-variant rounded text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary mx-1 text-right"
                           />
                           {/* Delete row */}
@@ -519,7 +674,8 @@ export default function SalesPage() {
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
 
                     {/* Add row button */}

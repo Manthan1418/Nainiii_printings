@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { firestore } from '../../../../lib/firebaseAdmin'
 
+export const runtime = 'nodejs'
+
 export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   try {

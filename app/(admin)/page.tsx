@@ -51,8 +51,8 @@ export default function Dashboard() {
     <main className="flex-1 md:ml-sidebar-width p-container-padding overflow-y-auto">
       <div className="mb-8 flex justify-between items-end">
         <div>
-          <h1 className="font-h1 text-h1 text-primary">Executive Overview</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">Real-time enterprise metrics and recent activity.</p>
+          <h1 className="font-h1 text-h1 text-primary">Material Flow Dashboard</h1>
+          <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">Track raw materials from purchase → production → delivery to customers.</p>
         </div>
         <div className="hidden sm:flex gap-3">
           <Link href="/sales" className="bg-tertiary-container text-on-tertiary rounded-DEFAULT px-4 py-2 font-body-md hover:bg-on-tertiary-fixed-variant transition-colors flex items-center gap-2">
@@ -60,6 +60,7 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
 {/* Metrics Grid */}
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 {/* Metric Card 1 */}
@@ -72,35 +73,35 @@ export default function Dashboard() {
 <div className="font-h2 text-h2 text-primary mb-1">{loading ? '...' : formatCurrency(totalRevenue)}</div>
 <div className="flex items-center gap-1 text-on-tertiary-container text-body-sm">
 <span className="material-symbols-outlined text-[16px]">trending_up</span>
-<span>Live data</span>
+<span>Money received</span>
 </div>
 </div>
 </div>
 {/* Metric Card 2 */}
 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 ambient-shadow flex flex-col justify-between">
 <div className="flex justify-between items-start mb-4">
-<span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Active Orders</span>
-<span className="material-symbols-outlined text-outline">local_shipping</span>
+<span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Production Cost</span>
+<span className="material-symbols-outlined text-outline">precision_manufacturing</span>
 </div>
 <div>
-<div className="font-h2 text-h2 text-primary mb-1">{loading ? '...' : activeOrders}</div>
+<div className="font-h2 text-h2 text-primary mb-1">{loading ? '...' : formatCurrency(totalExpenses)}</div>
 <div className="flex items-center gap-1 text-on-surface-variant text-body-sm">
-<span className="material-symbols-outlined text-[16px] text-outline">pending_actions</span>
-<span>Pending or Processing</span>
+<span className="material-symbols-outlined text-[16px] text-outline">trending_down</span>
+<span>Money spent</span>
 </div>
 </div>
 </div>
 {/* Metric Card 3 */}
-<div className="bg-surface-container-lowest border border-error-container rounded-xl p-4 ambient-shadow flex flex-col justify-between">
+<div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 ambient-shadow flex flex-col justify-between">
 <div className="flex justify-between items-start mb-4">
-<span className="font-label-caps text-label-caps text-error uppercase tracking-wider">Inventory Alerts</span>
+<span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Material Alerts</span>
 <span className="material-symbols-outlined text-error">warning</span>
 </div>
 <div>
-<div className="font-h2 text-h2 text-error mb-1">{loading ? '...' : `${inventoryAlerts} Items`}</div>
+<div className="font-h2 text-h2 text-error mb-1">{loading ? '...' : `${inventoryAlerts}`}</div>
 <div className="flex items-center gap-1 text-error text-body-sm">
 <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
-<span>Below critical threshold</span>
+<span>Running low on materials</span>
 </div>
 </div>
 </div>
@@ -161,21 +162,21 @@ export default function Dashboard() {
 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 ambient-shadow">
 <h3 className="font-h3 text-h3 text-primary mb-4">Quick Actions</h3>
 <div className="grid grid-cols-2 gap-3">
-<Link href="/sales" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
-<span className="material-symbols-outlined text-primary mb-2">add_shopping_cart</span>
-<span className="font-body-sm text-body-sm text-on-surface">New Order</span>
-</Link>
-<Link href="/parties" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
-<span className="material-symbols-outlined text-primary mb-2">person_add</span>
-<span className="font-body-sm text-body-sm text-on-surface">Add Customer</span>
-</Link>
-<Link href="/finance" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
-<span className="material-symbols-outlined text-primary mb-2">payments</span>
-<span className="font-body-sm text-body-sm text-on-surface">Record Income</span>
+<Link href="/inventory" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+<span className="material-symbols-outlined text-primary mb-2">shopping_cart</span>
+<span className="font-body-sm text-body-sm text-on-surface text-center">Add Materials</span>
 </Link>
 <Link href="/production" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
 <span className="material-symbols-outlined text-primary mb-2">precision_manufacturing</span>
-<span className="font-body-sm text-body-sm text-on-surface">New Batch</span>
+<span className="font-body-sm text-body-sm text-on-surface text-center">Create Batch</span>
+</Link>
+<Link href="/sales" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+<span className="material-symbols-outlined text-primary mb-2">local_shipping</span>
+<span className="font-body-sm text-body-sm text-on-surface text-center">New Order</span>
+</Link>
+<Link href="/parties" className="flex flex-col items-center justify-center p-4 bg-surface rounded-lg border border-surface-variant hover:border-outline-variant hover:bg-surface-container-low transition-all">
+<span className="material-symbols-outlined text-primary mb-2">person_add</span>
+<span className="font-body-sm text-body-sm text-on-surface text-center">New Customer</span>
 </Link>
 </div>
 </div>
